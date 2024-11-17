@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/syumai/workers/cloudflare/fetch"
 )
 
 type Repo struct {
@@ -29,13 +32,30 @@ type App struct {
 	ScreenshotURLs       []string `json:"screenshotURLs"`
 }
 
-func getReleases(repo string) (*Repo, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", repo)
-	resp, err := http.Get(url)
+func getReleases(repo string, context context.Context) (*Repo, error) {
+	cli := fetch.NewClient()
+
+	req, err := fetch.NewRequest(
+		context,
+		http.MethodGet,
+		fmt.Sprintf("https://api.github.com/repos/%s/releases", repo),
+		nil,
+	)
 	if err != nil {
 		fmt.Println("Error making request:", err)
 		return nil, err
 	}
+
+	req.Header.Set(
+		"User-Agent",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15, GH2AltStore",
+	)
+	resp, err := cli.Do(req, nil)
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return nil, err
+	}
+
 	defer resp.Body.Close()
 
 	var releases []struct {
